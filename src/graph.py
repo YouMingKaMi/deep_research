@@ -1,6 +1,6 @@
 from langgraph.graph import START, END, StateGraph
 
-from src.nodes import (search_node, query_generation_node, normalize_results_node, fetch_content_node, build_evidence_node, plan_search_node)
+from src.nodes import (search_node, query_generation_node, normalize_results_node, fetch_content_node, build_evidence_node, plan_search_node, report_generation_node, validate_citations_node)
 from src.state import ResearchState
 
 
@@ -31,6 +31,8 @@ builder.add_node("normalize", normalize_results_node)
 builder.add_node("fetch", fetch_content_node)
 builder.add_node("build_evidence", build_evidence_node)
 builder.add_node("plan_subquestion", plan_search_node)
+builder.add_node("report", report_generation_node)
+builder.add_node("validate_cita", validate_citations_node)
 
 builder.add_edge(START, "plan_subquestion")
 builder.add_edge("plan_subquestion", "make_query")
@@ -50,9 +52,11 @@ builder.add_conditional_edges(
     route_after_evidence,
     {
         "make_query": "make_query",
-        "finish": END
+        "finish": "report"
     }
 )
+builder.add_edge("report", "validate_cita")
+builder.add_edge("validate_cita", END)
 
 
 graph = builder.compile()

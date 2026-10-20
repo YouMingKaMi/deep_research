@@ -9,6 +9,8 @@ from src.tools.search import SearchTool
 import httpx
 from bs4 import BeautifulSoup
 
+import re
+
 
 
 load_dotenv()
@@ -18,7 +20,7 @@ model = init_chat_model(
     temperature=0,
     api_key=os.environ["LLM_API_KEY"],
     base_url=os.environ["LLM_BASE_URL"],
-    timeout=30,
+    timeout=120,
     max_retries=0,
 )
 
@@ -200,4 +202,38 @@ def plan_search_node(state: ResearchState) -> dict:
     research_plan = result.sub_questions
     return {
         "search_plan": research_plan
+    }
+
+def report_generation_node(state: ResearchState) -> dict:
+    question = state["question"]
+    search_plan = state["search_plan"]
+    evidence = formate_evidence(state)
+    prompt = f"""
+请研究问题：{question}，整理成研究报告的形式。
+研究规划：{search_plan}。
+当前已有的证据：{evidence}。
+请遵循以下要求：
+- 根据研究问题组织报告结构。
+- 重要事实和结论使用 [S1]、[S2] 等引用 ID。
+- 只能引用实际提供的证据 ID，不得编造来源。
+- 证据不足时明确说明，不要自行补造事实。
+- 结合证据进行综合分析，而不是逐条复述搜索结果。
+"""
+    print(f"Prompt length: {len(prompt)} characters")
+    print(f"Evidence count: {len(state['evidence'])}")
+    report = model.invoke(prompt)
+    return {
+        "report": report.content
+    }
+
+def validate_citations_node(state: ResearchState) -> dict:
+    report = state["report"]
+    citation_ids = {int(x) for x in re.findall(r"\[S(\d+)\]", report)}
+    evidence_ids = {e.the_id for e in state["evidence"]}
+
+    invalid_ids = sorted(citation_ids - evidence_ids)
+    return {
+        "citation_errors": [
+            f"引用非法id: {invalid_ids}"
+        ]
     }

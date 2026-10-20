@@ -27,3 +27,5 @@ class ResearchState(TypedDict):
     turn: int = 2
     search_plan: list[str]
     query_generation_failed: bool
+    report: str
+    citation_errors: list

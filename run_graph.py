@@ -8,7 +8,8 @@ initial_state = {
     "evidence":[],
     "turn": 2,
     "search_plan":[],
-    "query_generation_failed": False
+    "query_generation_failed": False,
+    "report": ""
 }
 
 result = graph.invoke(initial_state)
@@ -20,7 +21,4 @@ print("搜索词：", result["search_query"])
 print("错误信息：", result["errors"])
 
 print("\n搜索结果：")
-for item in result["search_results"]:
-    print(f"- 标题：{item.title}")
-    print(f"  URL：{item.url}")
-    print(f"  内容预览：{item.content[:200]}")
+print("报告如下:\n"+ result["report"])
