@@ -29,3 +29,7 @@ class ResearchState(TypedDict):
     query_generation_failed: bool
     report: str
     citation_errors: list
+
+class LocalDocument(BaseModel):
+    source_path: str
+    content: str

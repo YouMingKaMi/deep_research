@@ -22,3 +22,4 @@ print("错误信息：", result["errors"])
 
 print("\n搜索结果：")
 print("报告如下:\n"+ result["report"])
+
