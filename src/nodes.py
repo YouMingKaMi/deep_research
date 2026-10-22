@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
-from src.state import ResearchState, Evidence, PlanResearch
+from src.state import ResearchState, Evidence, PlanResearch, ReviewResult
 from src.tools.search import SearchTool
 
 import httpx
@@ -13,7 +13,9 @@ import re
 
 
 
+
 load_dotenv()
+
 
 model = init_chat_model(
     model=os.environ["LLM_MODEL"],
@@ -41,7 +43,6 @@ def formate_evidence(state: ResearchState):
 """
         results.append(result)
     return "\n".join(results)
-
 
 
 def search_node(state: ResearchState) -> dict:
@@ -87,6 +88,10 @@ def query_generation_node(state: ResearchState) -> dict:
     {formate_evidence(state)}
     需要研究的子问题列表，请自己分析根据当前文章证据和关键词，选择重合度不高的方向：
     {state['search_plan']}
+    后面审查模型的反馈：
+    {state['review_feedback']}
+    审查模型指出的缺失话题：
+    {state['missing_topics']}
     """
 
     try:
@@ -237,3 +242,54 @@ def validate_citations_node(state: ResearchState) -> dict:
             f"引用非法id: {invalid_ids}"
         ]
     }
+
+def review_node(state: ResearchState) -> dict:
+    prompt = f"""
+    你是一名严谨的研究报告审查员，负责评估研究报告的质量，并为后续研究提供改进建议。
+
+    请根据以下信息进行审查。
+
+    研究问题：
+    {state["question"]}
+
+    研究规划：
+    {state["search_plan"]}
+
+    当前已有的证据：
+    {formate_evidence(state)}
+
+    研究报告：
+    {state["report"]}
+
+    请重点评估：
+    1. 报告是否充分回答了研究问题，并覆盖研究规划中的主要子问题。
+    2. 重要事实和结论是否有现有证据支持，引用是否准确。
+    3. 是否存在关键数据缺失、分析不充分或逻辑问题。
+    4. 如果报告不合格，具体还需要补充哪些研究方向。
+
+    输出要求：
+    - approved：布尔值，报告达到要求时为 true，否则为 false。
+    - feedback：字符串，说明审查结论及具体理由。
+    - missing_topics：字符串列表，列出需要补充的具体研究方向。
+    - 如果报告已经达到要求，missing_topics 返回空列表。
+    - 严格返回合法 JSON，不要添加 Markdown 代码块或其他解释文字。"""
+    
+    structured_model = model.with_structured_output(ReviewResult, method="json_mode")
+    result = structured_model.invoke(prompt)
+
+    next_review_round = state["review_round"] + 1
+    if (not result.approved) and next_review_round < state["max_review_round"]:
+        return {
+                "review_approved": result.approved,
+                "review_feedback": result.feedback,
+                "missing_topics": result.missing_topics,
+                "review_round": next_review_round,
+                "turn": 2,
+        }
+    else:
+        return {
+                "review_approved": result.approved,
+                "review_feedback": result.feedback,
+                "missing_topics": result.missing_topics,
+                "review_round": next_review_round,
+        }

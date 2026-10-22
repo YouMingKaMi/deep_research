@@ -29,7 +29,17 @@ class ResearchState(TypedDict):
     query_generation_failed: bool
     report: str
     citation_errors: list
+    review_approved: bool
+    review_feedback: str
+    missing_topics: list[str]
+    review_round: int
+    max_review_round: int = 2
 
 class LocalDocument(BaseModel):
     source_path: str
     content: str
+
+class ReviewResult(BaseModel):
+    approved: bool = Field(description="报告质量是否通过")
+    feedback: str = Field(description="反馈内容")
+    missing_topics: list[str] = Field(description="还缺少的话题")

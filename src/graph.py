@@ -1,6 +1,6 @@
 from langgraph.graph import START, END, StateGraph
 
-from src.nodes import (search_node, query_generation_node, normalize_results_node, fetch_content_node, build_evidence_node, plan_search_node, report_generation_node, validate_citations_node)
+from src.nodes import (search_node, query_generation_node, normalize_results_node, fetch_content_node, build_evidence_node, plan_search_node, report_generation_node, validate_citations_node, review_node)
 from src.state import ResearchState
 
 
@@ -21,6 +21,15 @@ def route_after_evidence(state: ResearchState) -> str:
     else:
         return "finish"
 
+def route_after_review(state: ResearchState) -> str:
+    review_round = state["review_round"]
+    max_round = state["max_review_round"]
+    if not state["review_approved"] and review_round < max_round:
+        return "make_query"
+    else:
+        return "finish"
+
+
 
 
 builder = StateGraph(ResearchState)
@@ -33,6 +42,7 @@ builder.add_node("build_evidence", build_evidence_node)
 builder.add_node("plan_subquestion", plan_search_node)
 builder.add_node("report", report_generation_node)
 builder.add_node("validate_cita", validate_citations_node)
+builder.add_node("review", review_node)
 
 builder.add_edge(START, "plan_subquestion")
 builder.add_edge("plan_subquestion", "make_query")
@@ -56,7 +66,16 @@ builder.add_conditional_edges(
     }
 )
 builder.add_edge("report", "validate_cita")
-builder.add_edge("validate_cita", END)
+builder.add_edge("validate_cita", "review")
+builder.add_conditional_edges(
+    "review",
+    route_after_review,
+    {
+        "make_query": "make_query",
+        "finish": END
+    }
+    
+)
 
 
 graph = builder.compile()
